@@ -56,11 +56,8 @@ jobs:
           name: Verify Pod Readiness
           command: |
             echo "--- Waiting for pods to be ready... ---"
-            # ✅ CORRECTED: Using 'app=my-app-backend' from backend-deployment.yaml
-            kubectl wait --for=condition=ready pod -l app=my-app-backend --timeout=600s
-
-            # ✅ CORRECTED: Using 'app=frontend' from frontend-deployment.yaml
-            kubectl wait --for=condition=ready pod -l app=frontend --timeout=600s
+            kubectl wait --for=condition=Ready pod --all --timeout=300s
+            echo "--- Pods are ready ---"
             
             echo "--- Pods and Services ---"
             kubectl get pods,svc -o wide
