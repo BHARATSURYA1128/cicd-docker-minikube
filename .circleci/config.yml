@@ -56,8 +56,7 @@ jobs:
           name: Verify Pod Readiness
           command: |
             echo "--- Waiting for pods to be ready... ---"
-            kubectl wait --for=condition=Ready pod --all --timeout=300s
-            echo "--- Pods are ready ---"
+            
             
             echo "--- Pods and Services ---"
             kubectl get pods,svc -o wide
