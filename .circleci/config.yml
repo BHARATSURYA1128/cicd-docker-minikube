@@ -1,66 +1,47 @@
-# Use the latest 2.1 version of the CircleCI pipeline process engine.
+# .circleci/config.yml
+
 version: 2.1
 
-# Define reusable executors. Using a machine executor is best for running Minikube.
 executors:
   linux-machine:
     machine:
-      image: ubuntu-2204:current # A Linux VM environment
+      image: ubuntu-2204:current
     resource_class: medium
 
-# Define the jobs for the pipeline.
 jobs:
-  # This job builds two Docker images (frontend & backend) and pushes them to Docker Hub.
   build-and-push-images:
+    # ... (This job remains the same) ...
     executor: linux-machine
     steps:
-      # 1. Get the code from the repository.
       - checkout
-
-      # 2. Log in to Docker Hub.
-      # Requires DOCKER_LOGIN and DOCKER_PASSWORD to be set in Project Settings.
       - run:
           name: Log in to Docker Hub
           command: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_LOGIN" --password-stdin
-
-      # 3. Build and push the backend image.
       - run:
           name: Build and push backend image
           command: |
             docker build -t "$DOCKER_LOGIN/my-app-backend:${CIRCLE_SHA1}" -f backend/Dockerfile ./backend
             docker push "$DOCKER_LOGIN/my-app-backend:${CIRCLE_SHA1}"
-
-      # 4. Build and push the frontend image.
       - run:
           name: Build and push frontend image
           command: |
             docker build -t "$DOCKER_LOGIN/my-app-frontend:${CIRCLE_SHA1}" -f frontend/Dockerfile ./frontend
             docker push "$DOCKER_LOGIN/my-app-frontend:${CIRCLE_SHA1}"
 
-  # This job deploys the application to a Minikube cluster.
-  deploy-to-minikube:
+  deploy-and-verify:
     executor: linux-machine
     steps:
-      # 1. Get the code from the repository.
       - checkout
-
-      # 2. Install kubectl.
       - run:
-          name: Install kubectl
+          name: Install kubectl and Minikube
           command: |
             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
             sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-            kubectl version --client
-
-      # 3. Install and start Minikube.
-      - run:
-          name: Start Minikube
-          command: |
             curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
             sudo install minikube /usr/local/bin/
-            minikube start --driver=docker --kubernetes-version=v1.28.3
-
-      # 4. Update image tags in Kubernetes manifests.
+      - run:
+          name: Start Minikube
+          command: minikube start --driver=docker --kubernetes-version=v1.28.3
       - run:
           name: Update Kubernetes Manifests
           command: |
@@ -68,37 +49,34 @@ jobs:
             sed -i "s|bharatsurya1128|${DOCKER_LOGIN}|g" k8s/*.yaml
             echo "--- Updated Manifests ---"
             cat k8s/*.yaml
-
-      # 5. Deploy application to Minikube.
       - run:
           name: Deploy to Minikube
           command: kubectl apply -f k8s/
-
-      # 6. Verify the deployment.
       - run:
-          name: Verify deployment
+          name: Verify Pod Readiness
           command: |
             echo "--- Waiting for pods to be ready... ---"
-            # Change 'app=backend' to match the actual label, e.g., 'app=my-app-backend'
-            kubectl wait --for=condition=ready pod -l app=my-app-backend --timeout=600s
-            kubectl wait --for=condition=ready pod -l app=my-app-frontend --timeout=600s
+            # ✅ CORRECTED: Using 'app=my-app-backend' from backend-deployment.yaml
+            kubectl wait --for=condition=ready pod -l app=my-app-backend --timeout=120s
+
+            # ✅ CORRECTED: Using 'app=frontend' from frontend-deployment.yaml
+            kubectl wait --for=condition=ready pod -l app=frontend --timeout=120s
             
             echo "--- Pods and Services ---"
             kubectl get pods,svc -o wide
+      - run:
+          name: Verify Webpage Access
+          command: |
+            # ✅ CORRECTED: Using 'frontend-service' from frontend-service.yaml
+            FRONTEND_URL=$(minikube service frontend-service --url)
+            
+            echo "Accessing URL: $FRONTEND_URL"
+            curl --fail --retry 5 --retry-delay 5 "$FRONTEND_URL"
 
-# The workflow defines the order and rules for running jobs.
 workflows:
   build-and-deploy:
     jobs:
-      - build-and-push-images:
-          # This filter ensures the workflow only runs on pushes to the 'main' branch.
-          filters:
-            branches:
-              only: main
-      - deploy-to-minikube:
-          # This job requires the 'build-and-push-images' job to complete successfully.
+      - build-and-push-images
+      - deploy-and-verify:
           requires:
             - build-and-push-images
-          filters:
-            branches:
-              only: main

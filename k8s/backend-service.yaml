@@ -1,10 +1,14 @@
+# backend-service.yaml
+
 apiVersion: v1
 kind: Service
 metadata:
   name: backend-service
 spec:
   selector:
-    app: backend
+    # ✅ CORRECTED: Changed from 'backend' to 'my-app-backend'
+    # This now correctly matches the label in backend-deployment.yaml
+    app: my-app-backend
   ports:
   - protocol: TCP
     port: 5000
