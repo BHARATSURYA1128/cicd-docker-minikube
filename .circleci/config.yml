@@ -79,8 +79,10 @@ jobs:
           name: Verify deployment
           command: |
             echo "--- Waiting for pods to be ready... ---"
-            kubectl wait --for=condition=ready pod -l app=backend --timeout=120s
-            kubectl wait --for=condition=ready pod -l app=frontend --timeout=120s
+            # Change 'app=backend' to match the actual label, e.g., 'app=my-app-backend'
+            kubectl wait --for=condition=ready pod -l app=my-app-backend --timeout=120s
+            kubectl wait --for=condition=ready pod -l app=my-app-frontend --timeout=120s
+            
             echo "--- Pods and Services ---"
             kubectl get pods,svc -o wide
 

@@ -1,19 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-deployment
+  name: my-app-backend-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      tier: backend # This is used by the Service
   template:
     metadata:
       labels:
-        app: backend
+        # ✅ This is the label you MUST match in your script.
+        # Is it "app: backend" or something else?
+        # For example, it might be this:
+        app: my-app-backend 
+        tier: backend
     spec:
       containers:
       - name: backend
-        image: bharatsurya1128/my-app-backend:LATEST_TAG
-        ports:
-        - containerPort: 5000
+        image: bharatsurya/my-app-backend
