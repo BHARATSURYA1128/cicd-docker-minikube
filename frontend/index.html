@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Frontend</title></head>
+<body>
+  <h1>Welcome to the Two-Tier App created by Surya J!</h1>
+  <p>Data from backend: <b id="data">Loading...</b></p>
+  <script>
+    fetch('/api')
+      .then(response => response.json())
+      .then(data => document.getElementById('data').innerText = data.message)
+      .catch(error => document.getElementById('data').innerText = 'Error loading data');
+  </script>
+</body>
+</html>
