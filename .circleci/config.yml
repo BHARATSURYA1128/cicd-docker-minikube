@@ -1,0 +1,102 @@
+# Use the latest 2.1 version of the CircleCI pipeline process engine.
+version: 2.1
+
+# Define reusable executors. Using a machine executor is best for running Minikube.
+executors:
+  linux-machine:
+    machine:
+      image: ubuntu-2204:current # A Linux VM environment
+    resource_class: medium
+
+# Define the jobs for the pipeline.
+jobs:
+  # This job builds two Docker images (frontend & backend) and pushes them to Docker Hub.
+  build-and-push-images:
+    executor: linux-machine
+    steps:
+      # 1. Get the code from the repository.
+      - checkout
+
+      # 2. Log in to Docker Hub.
+      # Requires DOCKER_LOGIN and DOCKER_PASSWORD to be set in Project Settings.
+      - run:
+          name: Log in to Docker Hub
+          command: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_LOGIN" --password-stdin
+
+      # 3. Build and push the backend image.
+      - run:
+          name: Build and push backend image
+          command: |
+            docker build -t "$DOCKER_LOGIN/my-app-backend:${CIRCLE_SHA1}" -f backend/Dockerfile ./backend
+            docker push "$DOCKER_LOGIN/my-app-backend:${CIRCLE_SHA1}"
+
+      # 4. Build and push the frontend image.
+      - run:
+          name: Build and push frontend image
+          command: |
+            docker build -t "$DOCKER_LOGIN/my-app-frontend:${CIRCLE_SHA1}" -f frontend/Dockerfile ./frontend
+            docker push "$DOCKER_LOGIN/my-app-frontend:${CIRCLE_SHA1}"
+
+  # This job deploys the application to a Minikube cluster.
+  deploy-to-minikube:
+    executor: linux-machine
+    steps:
+      # 1. Get the code from the repository.
+      - checkout
+
+      # 2. Install kubectl.
+      - run:
+          name: Install kubectl
+          command: |
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+            kubectl version --client
+
+      # 3. Install and start Minikube.
+      - run:
+          name: Start Minikube
+          command: |
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+            sudo install minikube /usr/local/bin/
+            minikube start --driver=docker --kubernetes-version=v1.28.3
+
+      # 4. Update image tags in Kubernetes manifests.
+      - run:
+          name: Update Kubernetes Manifests
+          command: |
+            sed -i "s/:LATEST_TAG/:${CIRCLE_SHA1}/g" k8s/*.yaml
+            sed -i "s|bharatsurya1128|${DOCKER_LOGIN}|g" k8s/*.yaml
+            echo "--- Updated Manifests ---"
+            cat k8s/*.yaml
+
+      # 5. Deploy application to Minikube.
+      - run:
+          name: Deploy to Minikube
+          command: kubectl apply -f k8s/
+
+      # 6. Verify the deployment.
+      - run:
+          name: Verify deployment
+          command: |
+            echo "--- Waiting for pods to be ready... ---"
+            kubectl wait --for=condition=ready pod -l app=backend --timeout=120s
+            kubectl wait --for=condition=ready pod -l app=frontend --timeout=120s
+            echo "--- Pods and Services ---"
+            kubectl get pods,svc -o wide
+
+# The workflow defines the order and rules for running jobs.
+workflows:
+  build-and-deploy:
+    jobs:
+      - build-and-push-images:
+          # This filter ensures the workflow only runs on pushes to the 'main' branch.
+          filters:
+            branches:
+              only: main
+      - deploy-to-minikube:
+          # This job requires the 'build-and-push-images' job to complete successfully.
+          requires:
+            - build-and-push-images
+          filters:
+            branches:
+              only: main
