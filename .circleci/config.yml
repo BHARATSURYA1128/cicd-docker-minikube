@@ -57,7 +57,7 @@ jobs:
           command: |
             echo "--- Waiting for pods to be ready... ---"
             
-            sleep 600
+            sleep 300
             echo "--- Pods and Services ---"
             kubectl get pods,svc -o wide
       - run:
