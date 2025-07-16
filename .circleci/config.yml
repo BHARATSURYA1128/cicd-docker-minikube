@@ -80,12 +80,11 @@ jobs:
           command: |
             echo "--- Waiting for pods to be ready... ---"
             # Change 'app=backend' to match the actual label, e.g., 'app=my-app-backend'
-            kubectl wait --for=condition=ready pod -l app=my-app-backend --timeout=120s
-            kubectl wait --for=condition=ready pod -l app=my-app-frontend --timeout=120s
+            kubectl wait --for=condition=ready pod -l app=my-app-backend --timeout=600s
+            kubectl wait --for=condition=ready pod -l app=my-app-frontend --timeout=600s
             
             echo "--- Pods and Services ---"
-            kubectl get pods
-            kubectl get svc -o wide
+            kubectl get pods,svc -o wide
 
 # The workflow defines the order and rules for running jobs.
 workflows:
