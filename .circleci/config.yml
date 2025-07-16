@@ -84,7 +84,8 @@ jobs:
             kubectl wait --for=condition=ready pod -l app=my-app-frontend --timeout=120s
             
             echo "--- Pods and Services ---"
-            kubectl get pods,svc -o wide
+            kubectl get pods
+            kubectl get svc -o wide
 
 # The workflow defines the order and rules for running jobs.
 workflows:
